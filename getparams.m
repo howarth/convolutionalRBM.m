@@ -7,7 +7,9 @@ function params = getparams(method)
 
 %% Model parameters
 params.nmap = 16; % number of filters
-params.szFilter = 8; % size of square filter
+%params.szFilter = 8; % size of square filter
+params.filterWidth = 8;
+params.filterHeight = 7;
 params.szPool = 2; % size of square max pool filter
 params.method = 'CD'; % learning method
 

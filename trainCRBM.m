@@ -36,47 +36,54 @@ else
 end
 
 %% initialization
-N = size(data.x, 4);
-Nfilters = params.nmap;
-Wfilter = params.szFilter;
-p = params.szPool;
-H = size(data.x, 1);
-W = size(data.x, 2);
-colors = size(data.x, 3);
-Hhidden = H - Wfilter + 1;
-Whidden = W - Wfilter + 1;
-Hpool = floor(Hhidden / p);
-Wpool = floor(Whidden / p);
-param_iter = params.iter;
-param_szBatch = params.szBatch;
+N = size(data.x, 4); % Number of data points
+Nfilters = params.nmap; % Number of filters
+%Wfilter = params.szFilter; % Width of filter
+filterWidth = params.filterWidth;
+filterHeight = params.filterHeight;
+p = params.szPool; % Size of pooling
+H = size(data.x, 1); % Height of images
+W = size(data.x, 2); % Width of images
+colors = size(data.x, 3); % Number of colors
+Hhidden = H - filterHeight + 1; % Height of hidden layer
+Whidden = W - filterWidth + 1; % Width of hidden layer
+Hpool = floor(Hhidden / p); % Height of pool layer
+Wpool = floor(Whidden / p); % Width of pool layer
+param_iter = params.iter; % Number of training iterations
+param_szBatch = params.szBatch; % Number of examples in each batch
 output_enabled = nargout > 1;
 
 %vmasNfilters = conve(ones(nh), ones(m), useCuda);
 
+% Initial hidden bias? WTC: parameterize
 hinit = 0;
-
 if params.sparseness > 0,
     hinit = -.1;
 end
 
+% Initialize model
 if exist('oldModel','var') && ~isempty(oldModel),
+    % Set model to old model
     model = oldModel;
+    % WTC: 0.01 below should be paramaterized. Also, should make gaussian distribution of weights?
     if (~isfield(model,'W')), 
-        model.W = 0.01 * randn(Wfilter, Wfilter, colors, Nfilters);
+        model.W = 0.01 * randn(filterHeight, filterWidth, colors, Nfilters);
     else
-        if (size(model.W) ~= [Wfilter Wfilter colors Nfilters]), error('Incompatible input model.'); end
+        if (size(model.W) ~= [filterHeight filterWidth colors Nfilters]), error('Incompatible input model.'); end
     end
     if (~isfield(model,'vbias')), model.vbias = zeros(1, colors);end
     if (~isfield(model,'hbias')), model.hbias = ones(1, Nfilters) * hinit;end
     if (~isfield(model,'sigma')),
         if (params.sparseness > 0)
+            % What?
             model.sigma = 0.1;
         else
             model.sigma = 1;    
         end
     end
 else
-    model.W = 0.01 * randn(Wfilter, Wfilter, colors, Nfilters);
+    %WTC: remove repeated code from above
+    model.W = 0.01 * randn(filterHeight, filterWidth, colors, Nfilters);
     model.vbias = zeros(1, colors);
     model.hbias = ones(1, Nfilters) * hinit;
     if (params.sparseness > 0)
@@ -86,24 +93,31 @@ else
     end
 end
 
+
+% Change vars
 dW = 0;
 dvbias = 0;
 dhbias = 0;
 
+% Momentum variables
 pW = params.pW;
 pvbias = params.pvbias;
 phbias = params.phbias;
 
+% WTC: why?
 if output_enabled,
     output.x = zeros(Hpool, Wpool, Nfilters, N);
 end
 
+% Total number of batches
 total_batches = floor(N / param_szBatch);
+
 
 if params.verbose > 0,
     fprintf('Completed.\n');
 end
 
+% WAT
 hidq = params.sparseness;
 lambdaq = 0.9;
 
@@ -111,6 +125,7 @@ if ~isfield(model,'iter')
     model.iter = 0;
 end
 
+% Whiten data if set to
 if (params.whitenData),
     try
         load(sprintf('whitM_%d', params.szFilter));
@@ -129,7 +144,9 @@ if method == 2,
     phantom = randn(H, W, colors, N);
 end
 
+% Iterate through data
 for iter = model.iter+1:param_iter,
+    
     % shuffle data
     batch_idx = randperm(N);
     
@@ -140,9 +157,12 @@ for iter = model.iter+1:param_iter,
         end
     end
     
+
+    % What?
     hidact = zeros(1, Nfilters);
     errsum = 0;
     
+    % What?
     if (iter > 5),
         params.pW = .9;
         params.pvbias = 0;
@@ -150,12 +170,18 @@ for iter = model.iter+1:param_iter,
     end
     
     for batch = 1:total_batches,
+        % Select data for this batch
+        % WTC: Does creating a new var slow this code down?
         batchdata = data.x(:,:,:,batch_idx((batch - 1) * param_szBatch + 1 : ...
             batch * param_szBatch));
+
+        % I don't understand persistent
         if method == 2,
             phantomdata = phantom(:,:,:,((batch - 1) * param_szBatch + 1 : ...
                 batch * param_szBatch));
         end
+
+        % Why not originally zeros?
         recon = batchdata;
         
         %% positive phase
@@ -166,8 +192,11 @@ for iter = model.iter+1:param_iter,
         model_hbias = model.hbias;
         model_vbias = model.vbias;
         
+
+        % Pre-sigmoid activation of hidden layer?
         poshidacts = convs(recon, model_W, useCuda);
 
+        % hidden probs (cant be, not 0-1 (values in hundereds)), pool probs, (?) hiddenstates
         [poshidprobs, pospoolprobs, poshidstates] = poolHidden(poshidacts / model.sigma, model_hbias / model.sigma, p, useCuda);
         
         if output_enabled && ~rem(iter, params.saveInterv),
@@ -189,8 +218,10 @@ for iter = model.iter+1:param_iter,
             recon = phantomdata;
         end
         
+        % Add visible bias
         recon = bsxfun(@plus, recon, reshape(model_vbias, [1 1 colors]));
 
+        % Add noise if sparse? What?
         if (params.sparseness > 0),
             recon = recon + model.sigma * randn(size(recon));
         end
@@ -227,9 +258,9 @@ for iter = model.iter+1:param_iter,
         dvbias = pvbias * dvbias + ...
             reshape((sum(sum(sum(batchdata, 4), 2), 1) - sum(sum(sum(recon, 4), 2), 1))...
             / H / W / param_szBatch, [1 colors]);
-        ddw = convs4(batchdata(Wfilter:H-Wfilter+1,Wfilter:W-Wfilter+1,:,:), poshidprobs(Wfilter:Hhidden-Wfilter+1,Wfilter:Whidden-Wfilter+1,:,:), useCuda) ...
-            - convs4(    recon(Wfilter:H-Wfilter+1,Wfilter:W-Wfilter+1,:,:), neghidprobs(Wfilter:Hhidden-Wfilter+1,Wfilter:Whidden-Wfilter+1,:,:), useCuda);
-        dW = pW * dW + ddw / (Hhidden - 2 * Wfilter + 2) / (Whidden - 2 * Wfilter + 2) / param_szBatch;
+        ddw = convs4(batchdata(filterHeight:H-filterHeight+1,filterWidth:W-filterWidth+1,:,:), poshidprobs(filterHeight:H-filterHeight+1,filterWidth:W-filterWidth+1,:,:), useCuda) ...
+            - convs4(    recon(filterHeight:H-filterHeight+1,filterWidth:W-filterWidth+1,:,:), neghidprobs(filterHeight:H-filterHeight+1,filterWidth:W-filterWidth+1,:,:), useCuda);
+        dW = pW * dW + ddw / (Hhidden - 2 * filterHeight + 2) / (Whidden - 2 * filterWidth + 2) / param_szBatch;
         
         model.vbias = model.vbias + params.epsvbias * dvbias;
         if params.sparseness <= 0,
