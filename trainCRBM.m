@@ -67,9 +67,9 @@ if exist('oldModel','var') && ~isempty(oldModel),
     model = oldModel;
     % WTC: 0.01 below should be paramaterized. Also, should make gaussian distribution of weights?
     if (~isfield(model,'W')), 
-        model.W = 0.01 * randn(filterHeight, filterWidth, colors, Nfilters);
+        model.W = 0.01 * randn(filterWidth, filterHeight, colors, Nfilters);
     else
-        if (size(model.W) ~= [filterHeight filterWidth colors Nfilters]), error('Incompatible input model.'); end
+        if (size(model.W) ~= [filterWidth filterHeight colors Nfilters]), error('Incompatible input model.'); end
     end
     if (~isfield(model,'vbias')), model.vbias = zeros(1, colors);end
     if (~isfield(model,'hbias')), model.hbias = ones(1, Nfilters) * hinit;end
@@ -83,7 +83,7 @@ if exist('oldModel','var') && ~isempty(oldModel),
     end
 else
     %WTC: remove repeated code from above
-    model.W = 0.01 * randn(filterHeight, filterWidth, colors, Nfilters);
+    model.W = 0.01 * randn(filterWidth, filterHeight, colors, Nfilters);
     model.vbias = zeros(1, colors);
     model.hbias = ones(1, Nfilters) * hinit;
     if (params.sparseness > 0)
@@ -258,8 +258,8 @@ for iter = model.iter+1:param_iter,
         dvbias = pvbias * dvbias + ...
             reshape((sum(sum(sum(batchdata, 4), 2), 1) - sum(sum(sum(recon, 4), 2), 1))...
             / H / W / param_szBatch, [1 colors]);
-        ddw = convs4(batchdata(filterHeight:H-filterHeight+1,filterWidth:W-filterWidth+1,:,:), poshidprobs(filterHeight:H-filterHeight+1,filterWidth:W-filterWidth+1,:,:), useCuda) ...
-            - convs4(    recon(filterHeight:H-filterHeight+1,filterWidth:W-filterWidth+1,:,:), neghidprobs(filterHeight:H-filterHeight+1,filterWidth:W-filterWidth+1,:,:), useCuda);
+        ddw = convs4(batchdata(filterHeight:H-filterHeight+1,filterWidth:W-filterWidth+1,:,:), poshidprobs(filterHeight:Hhidden-filterHeight+1,filterWidth:Whidden-filterWidth+1,:,:), useCuda) ...
+            - convs4(    recon(filterHeight:H-filterHeight+1,filterWidth:W-filterWidth+1,:,:), neghidprobs(filterHeight:Hhidden-filterHeight+1,filterWidth:Whidden-filterWidth+1,:,:), useCuda);
         dW = pW * dW + ddw / (Hhidden - 2 * filterHeight + 2) / (Whidden - 2 * filterWidth + 2) / param_szBatch;
         
         model.vbias = model.vbias + params.epsvbias * dvbias;
