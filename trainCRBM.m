@@ -235,7 +235,7 @@ for iter = model.iter+1:param_iter,
             fprintf('.');
             err = batchdata - recon;
             errsum = errsum + sum(err(:).^2);
-            if (params.verbose > 4),
+            if (params.verbose > 4 && mod(iter, 10) == 0),
                 %% visualize data, reconstruction, and filters (still experimental)
                 figure(1);
                 for i = 1:16,subplot(4,8,i+16);imagesc(model.W(:,:,:,i));axis image off;end;colormap gray;drawnow;
