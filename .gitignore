@@ -1,6 +1,7 @@
 #nvmexopt*.bat
 *.ignore
 *.mex*
+*.swp
 *.asv
 *.mat
 101_ObjectCategories/*
